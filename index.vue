@@ -1,4 +1,4 @@
-<!-- ./src/apps/Modem/index.vue -->
+<!-- ./src/apps/Modem/index.vue (Part 1/2) -->
 <template>
   <div class="app-container">
     <!-- TOP MODEM PROFILE SELECTOR FRAME -->
@@ -23,6 +23,12 @@
       v-if="activeSchema.length && Object.keys(runtimeSettings).length"
       :schema="activeSchema"
       v-model="runtimeSettings"
+    />
+
+    <!-- DYNAMIC FEEDBACK INSTRUMENTS GAUGES -->
+    <ModemFeedbackPanel 
+      :schema="activeFeedbackSchema"
+      :data="decoderFeedbackData"
     />
 
     <!-- RUNTIME SETTINGS VERIFICATION BOX (TEST LOG) -->
@@ -54,9 +60,80 @@
   </div>
 </template>
 
+<style scoped>
+.app-container {
+  min-height: 100vh;
+  background-color: #1a191d;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.selector-container-wrapper {
+  background-color: #212025;
+  border: 1px solid #2d2c33;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.selector-container-wrapper label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #5d5c62;
+  letter-spacing: 0.8px;
+}
+.global-modem-selector {
+  width: 100%;
+  background-color: #1a191d;
+  border: 1px solid #2d2c33;
+  border-radius: 6px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+}
+.verification-card {
+  background-color: #1e1b18;
+  border: 1px solid #3a2d20;
+  border-radius: 8px;
+  padding: 12px;
+}
+.verification-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #d97706;
+  margin-bottom: 8px;
+}
+.pulse-dot-amber {
+  width: 6px;
+  height: 6px;
+  background-color: #d97706;
+  border-radius: 50%;
+}
+.telemetry-output {
+  margin: 0;
+  font-family: monospace;
+  font-size: 12px;
+  color: #fcd34d;
+  background-color: #151210;
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+</style>
+<!-- ./src/apps/Modem/index.vue (Part 2/2) -->
 <script setup>
 import { ref, onMounted, computed, onBeforeUnmount, watch } from 'vue';
 import ModemControlPanel from './components/ModemControlPanel.vue';
+import ModemFeedbackPanel from './components/ModemFeedbackPanel.vue';
 import TransmitterPane from './components/TransmitterPane.vue';
 import ReceiverPane from './components/ReceiverPane.vue';
 
@@ -66,6 +143,7 @@ import { getRegisteredModems, getModemDriver } from './lib/modem/index.js';
 const availableModems = ref([]);
 const selectedModemId = ref('');
 const runtimeSettings = ref({});
+const decoderFeedbackData = ref({});
 
 const isTransmitting = ref(false);
 const receiverActive = ref(false);
@@ -82,10 +160,26 @@ const activeSchema = computed(() => {
   return selected ? selected.controls : [];
 });
 
+const activeFeedbackSchema = computed(() => {
+  const selected = availableModems.value.find(m => m.id === selectedModemId.value);
+  return selected ? selected.feedbackMetadata : [];
+});
+
+//onMounted(() => {
+//  availableModems.value = getRegisteredModems();
+//  if (availableModems.value.length > 0) {
+//    selectedModemId.value = availableModems.value[0].id;
+//    handleModemHotSwap();
+//  }
+//});
 onMounted(() => {
+  // 1. Gather all auto-registered modem options
   availableModems.value = getRegisteredModems();
+  
   if (availableModems.value.length > 0) {
+    // 🌟 THE FIX: Safely grab the .id property from the first item inside the array slot
     selectedModemId.value = availableModems.value[0].id;
+    // Trigger parameter initialization 
     handleModemHotSwap();
   }
 });
@@ -96,6 +190,7 @@ const handleModemHotSwap = () => {
     liveStreamPointer.stop();
     liveStreamPointer = null;
   }
+  decoderFeedbackData.value = {};
 
   const driver = getModemDriver(selectedModemId.value);
   if (!driver || !driver.controls) {
@@ -119,14 +214,10 @@ const ensureAudioEngine = () => {
   }
 };
 
-// 🌟 FIX: Dynamic Live Parameter Re-engagement Watch Loop
-// Watching runtimeSettings deeply. If you move any slider (frequencies or baud rate),
-// this automatically cycles the processing nodes to apply the changes instantly.
 watch(runtimeSettings, () => {
   const driver = getModemDriver(selectedModemId.value);
   if (!driver) return;
 
-  // 1. If audio is actively looping, hot-swap the transmitter stream instantly
   if (liveStreamPointer && isTransmitting.value) {
     liveStreamPointer.stop();
     liveStreamPointer = driver.startStream(
@@ -137,7 +228,6 @@ watch(runtimeSettings, () => {
     );
   }
 
-  // 2. If microphone is active, hot-swap the decoder frequencies
   if (receiverActive.value && !liveStreamPointer) {
     if (activeReceiverSession && typeof activeReceiverSession.kill === 'function') {
       activeReceiverSession.kill();
@@ -148,6 +238,9 @@ watch(runtimeSettings, () => {
       runtimeSettings.value,
       (decodedChar) => {
         receivedDataLog.value += decodedChar;
+      },
+      (metricsSnapshotObject) => {
+        decoderFeedbackData.value = metricsSnapshotObject;
       }
     );
   }
@@ -245,6 +338,9 @@ const startReceiverEngine = async () => {
       runtimeSettings.value, 
       (decodedChar) => {
         receivedDataLog.value += decodedChar;
+      },
+      (metricsSnapshotObject) => {
+        decoderFeedbackData.value = metricsSnapshotObject;
       }
     );
 
@@ -276,74 +372,4 @@ onBeforeUnmount(() => {
   if (audioCtx.value) audioCtx.value.close();
 });
 </script>
-
-<style scoped>
-.app-container {
-  min-height: 100vh;
-  background-color: #1a191d;
-  color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  padding: 16px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.selector-container-wrapper {
-  background-color: #212025;
-  border: 1px solid #2d2c33;
-  border-radius: 12px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.selector-container-wrapper label {
-  font-size: 10px;
-  font-weight: 800;
-  color: #5d5c62;
-  letter-spacing: 0.8px;
-}
-.global-modem-selector {
-  width: 100%;
-  background-color: #1a191d;
-  border: 1px solid #2d2c33;
-  border-radius: 6px;
-  padding: 12px;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 600;
-}
-.verification-card {
-  background-color: #1e1b18;
-  border: 1px solid #3a2d20;
-  border-radius: 8px;
-  padding: 12px;
-}
-.verification-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: bold;
-  color: #d97706;
-  margin-bottom: 8px;
-}
-.pulse-dot-amber {
-  width: 6px;
-  height: 6px;
-  background-color: #d97706;
-  border-radius: 50%;
-}
-.telemetry-output {
-  margin: 0;
-  font-family: monospace;
-  font-size: 12px;
-  color: #fcd34d;
-  background-color: #151210;
-  padding: 8px;
-  border-radius: 4px;
-  overflow-x: auto;
-}
-</style>
 
