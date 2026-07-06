@@ -1,19 +1,20 @@
 <!-- components/ModemControlPanel.vue -->
 <template>
-  <div class="control-panel-box">
-    <div class="panel-header">
+  <div class="control-panel-box" :class="{ 'panel-collapsed': !isOpen }">
+    <!-- Accordion Trigger Line Header -->
+    <div class="panel-header cursor-pointer" @click="isOpen = !isOpen">
       <span class="square-marker purple"></span>
       <label>MODEM PARAMETERS CONFIGURATION</label>
+      <span class="collapse-chevron">{{ isOpen ? '▲' : '▼' }}</span>
     </div>
 
-    <div class="controls-grid">
+    <div v-show="isOpen" class="controls-grid">
       <div v-for="ctrl in schema" :key="ctrl.key" class="control-row-item">
         <div class="control-meta-label">
           <span class="field-name">{{ ctrl.label }}</span>
           <span class="field-current-value">{{ modelValue[ctrl.key] }}</span>
         </div>
 
-        <!-- CONFIGURATION 1: SLIDER LAYER -->
         <div v-if="ctrl.render === 'slider'" class="slider-wrapper">
           <input 
             type="range" 
@@ -30,7 +31,6 @@
           </div>
         </div>
 
-        <!-- CONFIGURATION 2: TYPED NUMERIC INPUT FIELD -->
         <div v-else-if="ctrl.render === 'input' && ctrl.type === 'numeric'">
           <input 
             type="number" 
@@ -42,7 +42,6 @@
           />
         </div>
 
-        <!-- CONFIGURATION 3: SELECT LIST / DROP-DOWN MENU -->
         <div v-else-if="ctrl.render === 'dropdown'">
           <select 
             :value="modelValue[ctrl.key]"
@@ -54,31 +53,20 @@
             </option>
           </select>
         </div>
-
-        <!-- CONFIGURATION 4: RAW STRING FIELD -->
-        <div v-else>
-          <input 
-            type="text" 
-            :value="modelValue[ctrl.key]"
-            @input="updateField(ctrl.key, $event.target.value)"
-            class="panel-text-field"
-          />
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-// 🌟 FIX: Declare explicit runtime props signature properties
+import { ref } from 'vue';
 const props = defineProps({
   schema: { type: Array, required: true },
   modelValue: { type: Object, required: true }
 });
-
 const emit = defineEmits(['update:modelValue']);
+const isOpen = ref(true);
 
-// 🌟 FIX: Force explicit dictionary clones upstream to break variable caching locks
 const updateField = (key, value) => {
   const updatedCopy = { ...props.modelValue };
   updatedCopy[key] = value;
@@ -87,6 +75,14 @@ const updateField = (key, value) => {
 </script>
 
 <style scoped>
+.control-panel-box { background-color: #212025; border: 1px solid #2d2c33; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 14px; transition: all 0.2s ease; }
+.panel-collapsed { gap: 0; padding-bottom: 12px; padding-top: 12px; }
+.panel-header { display: flex; align-items: center; gap: 10px; width: 100%; user-select: none; }
+.cursor-pointer { cursor: pointer; }
+.square-marker { width: 10px; height: 10px; border-radius: 2px; background-color: #79529c; }
+label { font-size: 11px; font-weight: bold; color: #6f6e74; letter-spacing: 0.8px; flex: 1; }
+.collapse-chevron { font-size: 9px; color: #6f6e74; }
+.controls-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 4px; }
 .control-panel-box {
   background-color: #212025;
   border: 1px solid #2d2c33;

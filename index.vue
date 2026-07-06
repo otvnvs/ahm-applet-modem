@@ -1,59 +1,35 @@
-<!-- ./src/apps/Modem/index.vue (Part 1/2) -->
+<!-- ./src/apps/Modem/index.vue template segment updates -->
 <template>
   <div class="app-container">
-    <!-- TOP MODEM PROFILE SELECTOR FRAME -->
     <header class="app-header-node">
       <div class="selector-container-wrapper">
         <label for="modem-select">ACTIVE HARDWARE CONTROLLER</label>
-        <select 
-          id="modem-select" 
-          v-model="selectedModemId" 
-          @change="handleModemHotSwap"
-          class="global-modem-selector"
-        >
-          <option v-for="modem in availableModems" :key="modem.id" :value="modem.id">
-            {{ modem.name }}
-          </option>
+        <select id="modem-select" v-model="selectedModemId" @change="handleModemHotSwap" class="global-modem-selector">
+          <option v-for="modem in availableModems" :key="modem.id" :value="modem.id">{{ modem.name }}</option>
         </select>
       </div>
     </header>
 
-    <!-- LIVE CONFIGURATION CORES DISPLAY -->
     <ModemControlPanel 
       v-if="activeSchema.length && Object.keys(runtimeSettings).length"
       :schema="activeSchema"
       v-model="runtimeSettings"
     />
 
-    <!-- DYNAMIC FEEDBACK INSTRUMENTS GAUGES -->
-    <ModemFeedbackPanel 
-      :schema="activeFeedbackSchema"
-      :data="decoderFeedbackData"
-    />
-
-    <!-- RUNTIME SETTINGS VERIFICATION BOX (TEST LOG) -->
-    <!--
-    <div class="verification-card">
-      <div class="verification-header">
-        <span class="pulse-dot-amber"></span>
-        <span>MODEM SIGNAL TELEMETRY VERIFICATION</span>
-      </div>
-      <pre class="telemetry-output">{{ JSON.stringify(runtimeSettings, null, 2) }}</pre>
-    </div>
-    -->
-
-    <!-- TRANSMIT STAGE COMPONENT -->
+    <!-- TRANSMIT STAGE CARD -->
     <TransmitterPane 
       :is-transmitting="isTransmitting" 
       @transmit-payload="handleTransmit" 
       @toggle-tx-loop="handleTxLoopToggle"
     />
 
-    <!-- RECEIVER STAGE COMPONENT -->
+    <!-- RECEIVER STAGE CARD WITH CONSOLIDATED PROP PIPES -->
     <ReceiverPane 
       :receiver-active="receiverActive" 
       :received-data-log="receivedDataLog"
       :analyser-node="activeAnalyserNode"
+      :feedback-schema="activeFeedbackSchema"
+      :feedback-data="decoderFeedbackData"
       @toggle-receiver="initAudioAndToggleReceiver"
       @clear-log="clearLog"
     />
